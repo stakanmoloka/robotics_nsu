@@ -1,4 +1,0 @@
-Starting >>> stakanmoloka
-Finished <<< stakanmoloka [1.24s]
-
-Summary: 1 package finished [1.40s]
