@@ -102,6 +102,7 @@ class CleaningActionServer(Node):
         return result
 
     def return_home(self, x, y, goal_handler):
+        self.set_pen(off = 1)
         pose = self.get_current_pose()
         x_cur = pose.x
         y_cur = pose.y
@@ -115,9 +116,6 @@ class CleaningActionServer(Node):
             angle_to_goal = math.atan2(y - pose.y, x - pose.x)
             angle_diff = normalize_angle(angle_to_goal - pose.theta)
             cur_distance = math.sqrt((x - pose.x)**2 + (y - pose.y)**2)
-
-            print(f"angle_to_goal={angle_to_goal:.2f}, theta={pose.theta:.2f}, distance={distance:.2f}")
-
             twist_msg = Twist()
 
             if abs(angle_diff) > 0.1:

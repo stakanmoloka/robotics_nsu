@@ -1,4 +1,5 @@
 import rclpy
+import sys
 from rclpy.action import ActionClient
 from rclpy.node import Node
 from action_cleaning_robot_interface.action import CleaningTask
@@ -11,8 +12,8 @@ class CleaningActionClient(Node):
         self._tasks = []  
         self._current_task = None
 
-    def send_goal(self, *tasks):
-        self._tasks = list(tasks)
+    def send_goal(self, tasks):
+        self._tasks = tasks
         if not self._tasks:
             self.get_logger().error('No tasks provided!')
             return
@@ -61,16 +62,42 @@ class CleaningActionClient(Node):
         self.get_logger().info(f'Feedback [{self._current_task}]: {feedback.progress_percent}% ({feedback.current_cleaned_points} points)')
 
 
+
+
+def parse_args(args):
+    parsed_argv = []
+    try:
+        if len(args) % 4 != 0:
+            raise ValueError("Неверное количество аргументов. Формат: task_type area_size target_x target_y ...")
+
+        for i in range(0, len(args), 4):
+            task_type = str(args[i])
+            area_size = float(args[i + 1])
+            target_x = float(args[i + 2])
+            target_y = float(args[i + 3])
+
+            if task_type not in ["clean_circle", "return_home"]:
+                raise ValueError(f"Неверный тип задачи: {task_type}. Допустимые: clean_circle, return_home")
+
+            parsed_argv.append((task_type, area_size, target_x, target_y))
+
+    except (IndexError, ValueError) as e:
+        print(f"Ошибка при разборе аргументов: {e}")
+        print("Формат использования:")
+        print("   ros2 run action_cleaning_robot cleaning_client <task_type> <area_size> <target_x> <target_y> [ещё задачи...]")
+        print("   Пример:")
+        print("   ros2 run action_cleaning_robot cleaning_client clean_circle 2.0 5.0 5.0 return_home 0.0 5.5 5.5")
+        parsed_argv = []
+
+    return parsed_argv
+
 def main(args=None):
     rclpy.init(args=args)
     client = CleaningActionClient()
-
-    client.send_goal(
-        ('clean_circle', 1.0, 5.0, 5.0),
-        ('return_home', 0.0, 5.0, 5.0),
-        ('clean_circle', 3.0, 0.0, 0.0),
-        ('return_home', 1.0, 10.0, 10.0)
-    )
+    raw_args = sys.argv[1:]
+    set = parse_args(raw_args)
+    print(set)
+    client.send_goal(set)
 
     rclpy.spin(client)
 

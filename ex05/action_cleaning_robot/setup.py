@@ -20,6 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'cleaning_server = action_cleaning_robot.cleaning_task_server:main',
+            'cleaning_client = action_cleaning_robot.cleaning_task_client:main',
         ],
     },
 )
