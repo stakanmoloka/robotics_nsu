@@ -18,20 +18,21 @@ from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
-from launch.conditions import IfCondition, UnlessCondition
+from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, Command
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.actions import Node
 from launch.actions import TimerAction
+from launch.actions import ExecuteProcess
 
 
 def generate_launch_description():
     # Configure ROS nodes for launch
 
     # Setup project paths
-    pkg_project_my_first_robot = get_package_share_directory('my_first_robot')
-    pkg_project_bringup = get_package_share_directory('robot_bringup')
+    pkg_project_bringup = get_package_share_directory('robot_bringup_lid')
+    pkg_project_description = get_package_share_directory('robot_description_lid')
     pkg_ros_gz_sim = get_package_share_directory('ros_gz_sim')
 
     # # Load the URDF file from "description" package
@@ -39,14 +40,18 @@ def generate_launch_description():
     # with open(urdf_file, 'r') as infp:
     #     robot_desc = infp.read()
 
-    urdf_path  =  os.path.join(pkg_project_my_first_robot, 'src', 'description', 'robot.urdf.xacro')
+    urdf_path  =  os.path.join(pkg_project_description, 'urdf', 'my_robot_lidar.urdf.xacro')
     robot_desc = ParameterValue(Command(['xacro ', urdf_path]), value_type=str)
-
+    world_path = os.path.join(pkg_project_bringup, 'worlds', 'my_lidar_world.sdf')
     # Setup to launch the simulator and Gazebo world
     gz_sim = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_ros_gz_sim, 'launch', 'gz_sim.launch.py')),
-        launch_arguments={'gz_args': "-r empty.sdf"}.items(),
+      #  launch_arguments={'gz_args': f"-r {world_path}"}.items(),
+        launch_arguments={
+          "gz_args": f"-r gpu_lidar_sensor.sdf"}.items(),
+
+
     )
 
     # Spawn robot
@@ -54,11 +59,11 @@ def generate_launch_description():
         package='ros_gz_sim',
         executable='create',
         arguments=['-name', 'robot',
-                   '-topic', 'robot_description',
-                   '-x', '0.0',
-                   '-y', '0.0',
-                   '-z', '0.1',
-                ],
+                '-topic', 'robot_description',
+                '-x', '-4.0',
+                '-z', '0.5',
+                '-world', 'gpu_lidar_sensor'],
+
         output='screen',
     )
 
@@ -73,27 +78,12 @@ def generate_launch_description():
             {'frame_prefix': "robot/"}
         ]
     )
-    
-    joint_state_publisher_node = Node(
-        package='joint_state_publisher',
-        executable='joint_state_publisher',
-        name='joint_state_publisher',
-        parameters=[{'robot_description': Command(['xacro ', urdf_path])}],
-        # condition=UnlessCondition(LaunchConfiguration('gui'))
-    )
-    # Teleoperation with rqt_steering
-    rqt_steering_node = Node(
-        package='rqt_robot_steering',
-        executable='rqt_robot_steering',
-        name='rqt_steering',
-        output='screen',
-        condition=IfCondition(LaunchConfiguration('teleop'))  # опционально: запуск только если teleop=true
-    )
-    
+
+    # Visualize in RViz
     rviz = Node(
        package='rviz2',
        executable='rviz2',
-       arguments=['-d', os.path.join(pkg_project_my_first_robot, 'rviz', 'config.rviz')],
+       arguments=['-d', os.path.join(pkg_project_bringup, 'config', 'diff_drive.rviz')],
        condition=IfCondition(LaunchConfiguration('rviz'))
     )
 
@@ -108,19 +98,22 @@ def generate_launch_description():
         output='screen'
     )
 
+    lidar_stop = Node(
+                package='lidar_moving',
+                executable='lidar_moving',
+                name='lidar_moving_node',
+                output='screen',
+            )
     return LaunchDescription([
         gz_sim,
-        DeclareLaunchArgument('rviz', default_value='true',
-                            description='Open RViz.'),
-        DeclareLaunchArgument('teleop', default_value='true',
-                            description='Launch rqt_steering for controlling the robot'),
-        bridge,
         robot_state_publisher,
+        bridge,
+        DeclareLaunchArgument('rviz', default_value='true',
+                              description='Open RViz.'),
         rviz,
-        joint_state_publisher_node,
-        rqt_steering_node,  # <-- добавили сюда
         TimerAction(
             period=5.0,
-            actions=[create])
+             actions=[create]),
     ])
+
 
